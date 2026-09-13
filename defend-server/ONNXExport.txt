@@ -1,0 +1,143 @@
+# SIMPLIFIED: CONVERT MODEL TO ONNX
+
+# Install required packages
+!pip install onnxscript -q
+
+import torch
+import os
+import zipfile
+import shutil
+from transformers import RobertaTokenizer, RobertaForSequenceClassification
+from google.colab import files
+import warnings
+warnings.filterwarnings('ignore')
+
+print("="*60)
+print("CONVERTING MODEL TO ONNX")
+print("="*60)
+
+
+# STEP 1: EXTRACT THE ZIP
+
+zip_filename = 'cyberbullying_model (1).zip'
+extract_folder = './cyberbullying_model'
+
+if os.path.exists(extract_folder):
+    shutil.rmtree(extract_folder)
+
+with zipfile.ZipFile(zip_filename, 'r') as zip_ref:
+    zip_ref.extractall(extract_folder)
+
+print(f"Extracted to: {extract_folder}")
+
+
+# STEP 2: CHECK FILES
+
+print("\n Files in the extracted folder:")
+for file in os.listdir(extract_folder):
+    print(f"  - {file}")
+
+
+# STEP 3: LOAD THE MODEL
+
+print("\n Loading model...")
+
+model_path = extract_folder
+tokenizer = RobertaTokenizer.from_pretrained(model_path)
+model = RobertaForSequenceClassification.from_pretrained(model_path)
+print("Model loaded successfully!")
+
+
+# STEP 4: CONVERT TO ONNX
+
+print("\n Converting to ONNX...")
+
+model.eval()
+
+# Create dummy input
+dummy_text = "This is a test comment"
+dummy_inputs = tokenizer(
+    dummy_text,
+    return_tensors="pt",
+    max_length=256,
+    truncation=True,
+    padding='max_length'
+)
+
+print("This may take 2-5 minutes...")
+
+# Simple ONNX export with OPSET 18
+torch.onnx.export(
+    model,
+    (dummy_inputs['input_ids'], dummy_inputs['attention_mask']),
+    "cyberbullying_model.onnx",
+    input_names=['input_ids', 'attention_mask'],
+    output_names=['logits'],
+    opset_version=18,
+    do_constant_folding=True,
+    export_params=True
+)
+
+print("\n Model converted to ONNX!")
+
+
+# STEP 5: CHECK FILE SIZE
+
+
+file_size = os.path.getsize("cyberbullying_model.onnx") / (1024 * 1024)
+print(f"File size: {file_size:.2f} MB")
+
+
+# STEP 6: CHECK FOR DATA FILES
+
+data_files = [f for f in os.listdir('.') if f.endswith('.data')]
+if data_files:
+    print(f"\n Additional data files found:")
+    for df in data_files:
+        size = os.path.getsize(df) / (1024 * 1024)
+        print(f"  - {df}: {size:.2f} MB")
+
+
+# STEP 7: DOWNLOAD FILES
+
+print("\n Downloading files...")
+
+# Download the ONNX file
+files.download('cyberbullying_model.onnx')
+print("ONNX file downloaded!")
+
+# Download any .data files
+for df in data_files:
+    print(f"Downloading: {df}")
+    files.download(df)
+
+
+# STEP 8: SUMMARY
+
+
+print("\n" + "="*60)
+print("ALL DONE!")
+print("="*60)
+print("\nFiles created:")
+print(f"  - cyberbullying_model.onnx ({file_size:.2f} MB)")
+
+if data_files:
+    for df in data_files:
+        size = os.path.getsize(df) / (1024 * 1024)
+        print(f"  - {df} ({size:.2f} MB)")
+
+if file_size > 100:
+    print("\n ONNX file size looks correct!")
+elif file_size > 10:
+    print("\n ONNX file is smaller than expected.")
+    print(" This means the model is using external data files.")
+    print("Make sure you also download the .data file(s) above.")
+else:
+    print("\n ONNX file is too small.")
+    print(" Alternative: Upload your model to Hugging Face and use it directly.")
+
+print("\n For your browser extension, you need:")
+print("   1. cyberbullying_model.onnx")
+for df in data_files:
+    print(f"   2. {df}")
+print("="*60)

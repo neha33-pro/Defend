@@ -1,0 +1,227 @@
+import pandas as pd
+import numpy as np
+import torch
+import os
+from datasets import Dataset
+from transformers import (
+    RobertaTokenizer,
+    RobertaForSequenceClassification,
+    TrainingArguments,
+    Trainer,
+    EarlyStoppingCallback
+)
+from sklearn.metrics import accuracy_score, f1_score, precision_recall_fscore_support
+import shutil
+from google.colab import files
+
+
+# STEP 1: UPLOAD JIGSAW DATASET
+
+print("="*60)
+print("UPLOAD YOUR JIGSAW DATASET")
+print("="*60)
+
+uploaded = files.upload()
+filename = list(uploaded.keys())[0]
+df = pd.read_csv(filename)
+
+print(f"Loaded {len(df):,} rows")
+
+
+# STEP 2: ADD TARGETED EXAMPLES
+
+print("\n Adding targeted examples...")
+
+additional_examples = [
+    # "hoe" examples
+    ("You are a hoe.", "bullying"),
+    ("She's a hoe.", "bullying"),
+    ("He's a hoe.", "bullying"),
+    ("Stop being a hoe.", "bullying"),
+    ("You're such a hoe.", "bullying"),
+    ("She is a hoe.", "bullying"),
+    ("He called her a hoe.", "bullying"),
+    ("Don't be a hoe.", "bullying"),
+
+    # "whore" examples
+    ("You are a whore.", "bullying"),
+    ("She's a whore.", "bullying"),
+    ("He's a whore.", "bullying"),
+    ("Stop being a whore.", "bullying"),
+    ("You're such a whore.", "bullying"),
+    ("She is a whore.", "bullying"),
+    ("He called her a whore.", "bullying"),
+
+    # "slut" examples (fix this too!)
+    ("You are a slut.", "bullying"),
+    ("She's a slut.", "bullying"),
+    ("He's a slut.", "bullying"),
+    ("Stop being a slut.", "bullying"),
+    ("She is a slut.", "bullying"),
+    ("He called her a slut.", "bullying"),
+]
+
+extra_df = pd.DataFrame(additional_examples, columns=['comment_text', 'target'])
+
+# Combine
+df = pd.concat([df, extra_df], ignore_index=True)
+print(f" Added {len(additional_examples)} examples")
+print(f" Total: {len(df):,} rows")
+
+df['label'] = df['target'].map({'not_bullying': 0, 'bullying': 1})
+
+
+# STEP 3: USE SMALLER SUBSET FOR SPEED
+
+print("\n Using 30,000 rows for fast training...")
+
+# Take a random sample of 30,000 rows + keep all targeted examples
+# First, get the targeted examples we just added
+targeted_indices = df.tail(len(additional_examples)).index
+# Get 30,000 random rows from the rest
+random_indices = df.drop(targeted_indices).sample(n=30000, random_state=42).index
+# Combine
+final_indices = list(targeted_indices) + list(random_indices)
+df_fast = df.loc[final_indices].reset_index(drop=True)
+
+print(f"Fast dataset: {len(df_fast):,} rows")
+print("\n Label distribution:")
+print(df_fast['target'].value_counts())
+
+
+# STEP 4: LOAD ROBERTA
+
+print("\nLoading RoBERTa...")
+
+tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+model = RobertaForSequenceClassification.from_pretrained(
+    'roberta-base',
+    num_labels=2,
+    id2label={0: 'not_bullying', 1: 'bullying'},
+    label2id={'not_bullying': 0, 'bullying': 1}
+)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model.to(device)
+print(f" Model on {device}")
+
+# STEP 5: PREPARE DATASET
+
+print("\n Preparing dataset...")
+
+dataset = Dataset.from_pandas(df_fast[['comment_text', 'label']])
+
+def tokenize_function(examples):
+    return tokenizer(
+        examples['comment_text'],
+        padding='max_length',
+        truncation=True,
+        max_length=256
+    )
+
+tokenized_dataset = dataset.map(tokenize_function, batched=True)
+
+# Split
+train_test_split = tokenized_dataset.train_test_split(test_size=0.2, seed=42)
+test_valid = train_test_split['test'].train_test_split(test_size=0.5, seed=42)
+
+train_dataset = train_test_split['train']
+eval_dataset = test_valid['train']
+test_dataset = test_valid['test']
+
+print(f" Train: {len(train_dataset):,} rows")
+print(f"Validation: {len(eval_dataset):,} rows")
+
+# STEP 6: METRICS
+
+def compute_metrics(eval_pred):
+    logits, labels = eval_pred
+    predictions = np.argmax(logits, axis=-1)
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        labels, predictions, average='weighted'
+    )
+    acc = accuracy_score(labels, predictions)
+    return {'accuracy': acc, 'f1': f1, 'precision': precision, 'recall': recall}
+
+
+# STEP 7: FAST TRAINING
+
+print("\n" + "="*60)
+print(" STARTING FAST TRAINING")
+print("="*60)
+print("This will take 5-10 minutes...")
+
+training_args = TrainingArguments(
+    output_dir='./results_fast',
+    num_train_epochs=2,
+    per_device_train_batch_size=32,
+    per_device_eval_batch_size=64,
+    warmup_steps=100,
+    weight_decay=0.01,
+    logging_steps=50,
+    eval_strategy='epoch',
+    save_strategy='epoch',
+    load_best_model_at_end=True,
+    metric_for_best_model='f1',
+    greater_is_better=True,
+    push_to_hub=False,
+    report_to='none',
+    fp16=True,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+    compute_metrics=compute_metrics,
+    callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+)
+
+trainer.train()
+print("\n Training complete!")
+
+# STEP 8: EVALUATE
+
+test_results = trainer.evaluate(test_dataset)
+print(f"\nAccuracy: {test_results['eval_accuracy']:.4f}")
+print(f"F1 Score: {test_results['eval_f1']:.4f}")
+
+
+# STEP 9: SAVE AND DOWNLOAD
+print("\n Saving model...")
+model.save_pretrained('./cyberbullying_model')
+tokenizer.save_pretrained('./cyberbullying_model')
+
+shutil.make_archive('cyberbullying_model', 'zip', './cyberbullying_model')
+files.download('cyberbullying_model.zip')
+print("Model downloaded!")
+
+# STEP 10: TEST
+
+def predict(text):
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    with torch.no_grad():
+        outputs = model(**inputs)
+    probs = torch.softmax(outputs.logits, dim=-1)
+    pred_class = torch.argmax(probs, dim=-1).item()
+    confidence = probs[0][pred_class].item()
+    return "bullying" if pred_class == 1 else "not_bullying", confidence
+
+print("\n🔍 TESTING:")
+print("-" * 60)
+test_words = [
+    "You are a cunt.",
+    "You are a bitch.",
+    "You are a hoe.",
+    "You are a whore.",
+    "You are a slut.",
+]
+
+for text in test_words:
+    label, conf = predict(text)
+    print(f"'{text}' → {label} (conf: {conf:.2f})")
+print("-" * 60)
+
+print("\n ALL DONE! Download your model from the zip file!")

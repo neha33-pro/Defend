@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Defend</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Defend</h1>
+            <span class="badge" id="statusBadge">Active</span>
+        </div>
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">Protected</span>
+                <span class="stat-value" id="protectedCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Hidden</span>
+                <span class="stat-value" id="hiddenCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Blocked</span>
+                <span class="stat-value" id="blockedCount">0</span>
+            </div>
+        </div>
+        <div class="controls">
+            <button id="toggleBtn" class="primary-btn active">⏸️ Pause Protection</button>
+        </div>
+        <div class="settings">
+            <h3>⚙️ Settings</h3>
+            <div class="setting">
+                <label>Confidence Threshold: <span id="thresholdValue">85%</span></label>
+                <input type="range" id="thresholdSlider" min="50" max="95" value="85">
+            </div>
+            <div class="setting">
+                <label><input type="checkbox" id="autoScan" checked> Auto-scan new content</label>
+            </div>
+        </div>
+        <div class="footer">
+            <p>⚡ 100% private - all analysis on your device</p>
+            <p class="version">v1.0</p>
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

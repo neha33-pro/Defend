@@ -1,0 +1,10 @@
+﻿node_modules/
+temp_dist/
+*.zip
+.env
+dist/
+build/
+*.log
+defend-server/cyberbullying_model/
+*.onnx
+*.onnx.data

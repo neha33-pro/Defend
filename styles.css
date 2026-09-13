@@ -1,0 +1,91 @@
+/* styles.css */
+.defend-card {
+    background: #1a1a2e;
+    border: 1px solid #ff6b6b;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 4px 0;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+
+.defend-card .defend-content-wrapper {
+    background: #0f0f1a;
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.defend-card .defend-content-text {
+    color: #e0e0e0;
+    font-size: 14px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.defend-card .defend-content-author {
+    color: #888;
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.defend-card .defend-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.defend-card .defend-btn {
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: Arial, sans-serif;
+    transition: opacity 0.2s;
+}
+
+.defend-card .defend-btn:hover {
+    opacity: 0.8;
+}
+
+.defend-card .defend-btn-toggle {
+    background: #4a9eff;
+    color: white;
+}
+
+.defend-card .defend-btn-block {
+    background: #ff6b6b;
+    color: white;
+}
+
+.defend-card .defend-btn-report {
+    background: #ffa726;
+    color: white;
+}
+
+.defend-card .defend-btn-save {
+    background: #00c853;
+    color: white;
+}
+
+.defend-toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a2e;
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border-left: 4px solid #4a9eff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    z-index: 9999999;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    max-width: 90%;
+    transition: opacity 0.3s;
+}

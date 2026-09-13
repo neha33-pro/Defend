@@ -1,0 +1,21 @@
+{
+  "name": "defend-extension",
+  "version": "1.0.0",
+  "description": "Cyberbullying detection browser extension",
+  "main": "dist/background.js",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build",
+    "watch": "vite build --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "onnxruntime-web": "^1.27.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^5.0.0"
+  }
+}
